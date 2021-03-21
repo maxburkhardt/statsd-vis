@@ -19,7 +19,7 @@ const queueLen = 1000
 type HoldingArea struct {
 	counters map[string]int64
 	timers   map[string]timerInfo
-	gauges   map[string]int64
+	gauges   map[string]float64
 	sets     map[string]map[string]bool
 }
 
@@ -27,7 +27,7 @@ func (h *HoldingArea) clear() {
 	h.counters = make(map[string]int64)
 	h.timers = make(map[string]timerInfo)
 	h.sets = make(map[string]map[string]bool)
-	h.gauges = make(map[string]int64)
+	h.gauges = make(map[string]float64)
 }
 
 type timerInfo struct {
@@ -184,12 +184,12 @@ func parseLineToQueue(line string, rip net.Addr) {
 		} else {
 			op.op = SDOP_G_SET
 		}
-		ival, err := strconv.ParseInt(value, 10, 64)
+		fval, err := strconv.ParseFloat(value, 64)
 		if err != nil {
 			log.Printf("bad line [%s] from ip [%v]", line, rip)
 			return
 		}
-		op.ival = ival
+		op.fval = fval
 		// log.Printf("gauge: op=%d %s=%d", gop, line[0:colon], ival)
 	case "s":
 		//log.Printf("set: %s=%s", line[0:colon], value)
@@ -264,19 +264,19 @@ func aggregator() {
 					area.timers[op.name] = v
 				}
 			case SDOP_G_SET:
-				area.gauges[op.name] = op.ival
+				area.gauges[op.name] = op.fval
 			case SDOP_G_INCR:
 				if v, ok := area.gauges[op.name]; ok {
-					area.gauges[op.name] = v + op.ival
+					area.gauges[op.name] = v + op.fval
 				} else {
-					area.gauges[op.name] = op.ival
+					area.gauges[op.name] = op.fval
 				}
 			case SDOP_G_DECR:
 				if v, ok := area.gauges[op.name]; ok {
-					area.gauges[op.name] = v - op.ival
+					area.gauges[op.name] = v - op.fval
 				} else {
 					// CFG: statsdaemon floors value at 0, statsd does not(?)
-					area.gauges[op.name] = -op.ival
+					area.gauges[op.name] = -op.fval
 				}
 			case SDOP_S:
 				if v, ok := area.sets[op.name]; ok {
